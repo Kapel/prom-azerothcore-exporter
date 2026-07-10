@@ -211,3 +211,23 @@ var QualityNames = map[int]string{
 	0: "Poor", 1: "Common", 2: "Uncommon", 3: "Rare",
 	4: "Epic", 5: "Legendary", 6: "Artifact",
 }
+
+var MoneyLogTypeNames = map[int]string{
+	1: "COD",
+	2: "Auction_House",
+	3: "Guild_Bank_Deposit",
+	4: "Guild_Bank_Withdraw",
+	5: "Mail",
+	6: "Trade",
+}
+
+func GetMoneyLogTypeName(mtype int) string {
+	if name, exists := MoneyLogTypeNames[mtype]; exists {
+		return name
+	}
+	return fmt.Sprintf("Unknown_%d", mtype)
+}
+
+func CopperToGold(copper int64) float64 {
+	return float64(copper) / 10000.0
+}

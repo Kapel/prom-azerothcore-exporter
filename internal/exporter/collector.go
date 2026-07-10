@@ -43,6 +43,9 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	if err := e.collectMailMetrics(); err != nil {
 		log.Printf("Error collecting mail metrics: %v", err)
 	}
+	if err := e.collectMoneyMetrics(); err != nil {
+		log.Printf("Error collecting money metrics: %v", err)
+	}
 	if err := e.collectAccountMetrics(); err != nil {
 		log.Printf("Error collecting account metrics: %v", err)
 	}
@@ -103,6 +106,9 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	metrics.MailTotal.Collect(ch)
 	metrics.MailByFaction.Collect(ch)
 	metrics.MailWithItems.Collect(ch)
+	metrics.MoneyTransferCount.Collect(ch)
+	metrics.MoneyTransferVolumeGold.Collect(ch)
+	metrics.LargestTransfers.Collect(ch)
 	metrics.AccountsTotal.Collect(ch)
 	metrics.AccountsOnline.Collect(ch)
 	metrics.AccountsBanned.Collect(ch)
@@ -174,6 +180,9 @@ func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 	metrics.MailTotal.Describe(ch)
 	metrics.MailByFaction.Describe(ch)
 	metrics.MailWithItems.Describe(ch)
+	metrics.MoneyTransferCount.Describe(ch)
+	metrics.MoneyTransferVolumeGold.Describe(ch)
+	metrics.LargestTransfers.Describe(ch)
 	metrics.AccountsTotal.Describe(ch)
 	metrics.AccountsOnline.Describe(ch)
 	metrics.AccountsBanned.Describe(ch)

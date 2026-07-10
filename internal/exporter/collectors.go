@@ -806,6 +806,73 @@ func (e *Exporter) collectChatMetrics() error {
 	return nil
 }
 
+func (e *Exporter) collectMoneyMetrics() error {
+	metrics.MoneyTransferCount.Reset()
+	metrics.MoneyTransferVolumeGold.Reset()
+	metrics.LargestTransfers.Reset()
+
+	query := `
+		SELECT type, COUNT(*) as cnt, SUM(money) as total_copper
+		FROM log_money
+		WHERE date >= NOW() - INTERVAL 24 HOUR
+		GROUP BY type
+	`
+	rows, err := e.connections.Characters.Query(query)
+	if err != nil {
+		return err
+	}
+	defer database.CloseRowsWithLog(rows)
+
+	for rows.Next() {
+		var mtype int
+		var cnt int
+		var totalCopper sql.NullInt64
+		if err := rows.Scan(&mtype, &cnt, &totalCopper); err != nil {
+			return err
+		}
+		typeName := constants.GetMoneyLogTypeName(mtype)
+		typeLabel := fmt.Sprintf("%d", mtype)
+		metrics.MoneyTransferCount.WithLabelValues(typeLabel, typeName).Set(float64(cnt))
+		if totalCopper.Valid {
+			metrics.MoneyTransferVolumeGold.WithLabelValues(typeLabel, typeName).Set(constants.CopperToGold(totalCopper.Int64))
+		}
+	}
+
+	query = `
+		SELECT sender_name, receiver_name, money, type, date
+		FROM log_money
+		WHERE date >= NOW() - INTERVAL 24 HOUR
+		ORDER BY money DESC
+		LIMIT 10
+	`
+	rows, err = e.connections.Characters.Query(query)
+	if err != nil {
+		return err
+	}
+	defer database.CloseRowsWithLog(rows)
+
+	for rows.Next() {
+		var senderName, receiverName, dateStr string
+		var money sql.NullInt64
+		var mtype int
+		if err := rows.Scan(&senderName, &receiverName, &money, &mtype, &dateStr); err != nil {
+			return err
+		}
+		if senderName == "" {
+			senderName = "Unknown"
+		}
+		if receiverName == "" {
+			receiverName = "Unknown"
+		}
+		typeName := constants.GetMoneyLogTypeName(mtype)
+		if money.Valid {
+			metrics.LargestTransfers.WithLabelValues(senderName, receiverName, typeName, dateStr).Set(constants.CopperToGold(money.Int64))
+		}
+	}
+
+	return nil
+}
+
 func (e *Exporter) collectInstanceMetrics() error {
 	// Active instances
 	metrics.ActiveInstanceCount.Set(0)
