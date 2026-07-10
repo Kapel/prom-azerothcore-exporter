@@ -300,6 +300,7 @@ func (e *Exporter) collectEquipmentMetrics() error {
 		JOIN characters c ON ci.guid = c.guid
 		WHERE ci.slot BETWEEN 0 AND 18
 		AND (c.deleteDate IS NULL OR c.deleteDate = 0)
+		LIMIT 50000
 	`
 	rows, err := e.connections.Characters.Query(query)
 	if err != nil {

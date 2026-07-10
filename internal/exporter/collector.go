@@ -3,6 +3,7 @@ package exporter
 import (
 	"log"
 	"net/http"
+	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/scottjab/prom-azerothcore-exporter/metrics"
@@ -12,6 +13,7 @@ import (
 // Exporter implements the Prometheus Collector interface
 type Exporter struct {
 	connections *database.Connections
+	mu          sync.Mutex
 }
 
 // NewExporter creates a new exporter instance
@@ -30,6 +32,9 @@ func (e *Exporter) Close() {
 
 // Collect implements prometheus.Collector
 func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
 	// Collect all metrics
 	if err := e.collectPlayerMetrics(); err != nil {
 		log.Printf("Error collecting player metrics: %v", err)
