@@ -296,6 +296,33 @@ var (
 	)
 )
 
+// Money transfer metrics
+var (
+	MoneyTransferCount = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "wow_money_transfer_count",
+			Help: "Number of money transfers by type in the last 24 hours",
+		},
+		[]string{"type", "type_name"},
+	)
+
+	MoneyTransferVolumeGold = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "wow_money_transfer_volume_gold",
+			Help: "Total gold transferred by type in the last 24 hours",
+		},
+		[]string{"type", "type_name"},
+	)
+
+	LargestTransfers = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "wow_largest_transfers_gold",
+			Help: "Largest money transfers in the last 24 hours (top 10)",
+		},
+		[]string{"sender_name", "receiver_name", "type_name", "date"},
+	)
+)
+
 // Networking metrics
 var (
 	PlayerLatencyStats = prometheus.NewGaugeVec(
