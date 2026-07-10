@@ -491,3 +491,45 @@ var (
 		},
 	)
 )
+
+// Equipment metrics
+var (
+	EquippedWeaponTypes = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "wow_equipped_weapon_types",
+			Help: "Number of equipped weapons by subclass",
+		},
+		[]string{"subclass", "subclass_name", "faction"},
+	)
+
+	FishingRodsEquipped = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "wow_fishing_rods_equipped",
+			Help: "Number of equipped fishing poles",
+		},
+	)
+
+	EquipmentQualityDistribution = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "wow_equipment_quality_distribution",
+			Help: "Distribution of equipped items by quality and inventory slot",
+		},
+		[]string{"quality", "quality_name", "slot_type", "slot_name"},
+	)
+
+	AvgItemLevelBySlot = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "wow_avg_item_level_by_slot",
+			Help: "Average item level of equipped items by slot",
+		},
+		[]string{"slot_type", "slot_name"},
+	)
+
+	TopEquippedItems = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "wow_top_equipped_items",
+			Help: "Most commonly equipped items by entry (top items)",
+		},
+		[]string{"item_entry", "item_name", "quality_name"},
+	)
+)
