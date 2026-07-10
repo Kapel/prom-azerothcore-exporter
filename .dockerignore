@@ -1,0 +1,7 @@
+.git
+.github
+*.md
+flake.nix
+flake.lock
+grafana-dashboard.json
+result
