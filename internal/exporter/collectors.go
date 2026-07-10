@@ -3,6 +3,8 @@ package exporter
 import (
 	"database/sql"
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/scottjab/prom-azerothcore-exporter/metrics"
 	"github.com/scottjab/prom-azerothcore-exporter/pkg/constants"
@@ -197,6 +199,201 @@ func (e *Exporter) collectPlayerMetrics() error {
 			characterName,
 			accountName,
 		).Set(float64(level))
+	}
+
+	return nil
+}
+
+func (e *Exporter) collectEquipmentMetrics() error {
+	metrics.EquippedWeaponTypes.Reset()
+	metrics.FishingRodsEquipped.Set(0)
+	metrics.EquipmentQualityDistribution.Reset()
+	metrics.AvgItemLevelBySlot.Reset()
+	metrics.TopEquippedItems.Reset()
+
+	type equipRow struct {
+		itemEntry int
+		race      int
+	}
+
+	query := `
+		SELECT ii.itemEntry, c.race
+		FROM character_inventory ci
+		JOIN item_instance ii ON ci.item = ii.guid
+		JOIN characters c ON ci.guid = c.guid
+		WHERE ci.slot BETWEEN 0 AND 18
+		AND (c.deleteDate IS NULL OR c.deleteDate = 0)
+	`
+	rows, err := e.connections.Characters.Query(query)
+	if err != nil {
+		return err
+	}
+	defer database.CloseRowsWithLog(rows)
+
+	var equippedItems []equipRow
+	uniqueEntries := make(map[int]bool)
+	for rows.Next() {
+		var entry, race int
+		if err := rows.Scan(&entry, &race); err != nil {
+			return err
+		}
+		equippedItems = append(equippedItems, equipRow{itemEntry: entry, race: race})
+		uniqueEntries[entry] = true
+	}
+
+	if len(equippedItems) == 0 {
+		return nil
+	}
+
+	var entryIDs []int
+	for entry := range uniqueEntries {
+		entryIDs = append(entryIDs, entry)
+	}
+
+	type itemTemplateData struct {
+		entry         int
+		class         int
+		subclass      int
+		name          string
+		quality       int
+		inventoryType int
+		itemLevel     int
+	}
+	itemTemplateMap := make(map[int]itemTemplateData)
+
+	const batchSize = 1000
+	for i := 0; i < len(entryIDs); i += batchSize {
+		end := i + batchSize
+		if end > len(entryIDs) {
+			end = len(entryIDs)
+		}
+		batch := entryIDs[i:end]
+
+		placeholders := make([]string, len(batch))
+		args := make([]interface{}, len(batch))
+		for j, id := range batch {
+			placeholders[j] = "?"
+			args[j] = id
+		}
+
+		batchQuery := fmt.Sprintf(
+			"SELECT entry, class, subclass, name, Quality, InventoryType, ItemLevel FROM item_template WHERE entry IN (%s)",
+			strings.Join(placeholders, ","),
+		)
+
+		batchRows, err := e.connections.World.Query(batchQuery, args...)
+		if err != nil {
+			return err
+		}
+		for batchRows.Next() {
+			var d itemTemplateData
+			if err := batchRows.Scan(&d.entry, &d.class, &d.subclass, &d.name, &d.quality, &d.inventoryType, &d.itemLevel); err != nil {
+				batchRows.Close()
+				return err
+			}
+			itemTemplateMap[d.entry] = d
+		}
+		batchRows.Close()
+	}
+
+	weaponCounts := make(map[string]int)
+	var fishingRodsCount int
+	qualityDist := make(map[string]int)
+	type ilvlAgg struct {
+		sum   int
+		count int
+	}
+	ilvlBySlot := make(map[int]ilvlAgg)
+	itemCounts := make(map[int]int)
+
+	for _, eq := range equippedItems {
+		tmpl, ok := itemTemplateMap[eq.itemEntry]
+		if !ok {
+			continue
+		}
+
+		faction := constants.RaceToFaction[eq.race]
+		if faction == "" {
+			faction = "Unknown"
+		}
+
+		if tmpl.class == 2 {
+			subclassName := constants.WeaponSubclassNames[tmpl.subclass]
+			if subclassName == "" {
+				subclassName = fmt.Sprintf("Unknown_%d", tmpl.subclass)
+			}
+			key := fmt.Sprintf("%d:%s:%s", tmpl.subclass, subclassName, faction)
+			weaponCounts[key]++
+		}
+
+		if tmpl.class == 2 && tmpl.subclass == 20 {
+			fishingRodsCount++
+		}
+
+		qualityName := constants.QualityNames[tmpl.quality]
+		if qualityName == "" {
+			qualityName = fmt.Sprintf("Unknown_%d", tmpl.quality)
+		}
+		slotName := constants.InventoryTypeNames[tmpl.inventoryType]
+		if slotName == "" {
+			slotName = fmt.Sprintf("Unknown_%d", tmpl.inventoryType)
+		}
+		distKey := fmt.Sprintf("%d:%s:%d:%s", tmpl.quality, qualityName, tmpl.inventoryType, slotName)
+		qualityDist[distKey]++
+
+		agg := ilvlBySlot[tmpl.inventoryType]
+		agg.sum += tmpl.itemLevel
+		agg.count++
+		ilvlBySlot[tmpl.inventoryType] = agg
+
+		itemCounts[tmpl.entry]++
+	}
+
+	for key, count := range weaponCounts {
+		parts := strings.SplitN(key, ":", 3)
+		subclass, subclassName, faction := parts[0], parts[1], parts[2]
+		metrics.EquippedWeaponTypes.WithLabelValues(subclass, subclassName, faction).Set(float64(count))
+	}
+
+	metrics.FishingRodsEquipped.Set(float64(fishingRodsCount))
+
+	for key, count := range qualityDist {
+		parts := strings.SplitN(key, ":", 4)
+		quality, qualityName, slotType, slotName := parts[0], parts[1], parts[2], parts[3]
+		metrics.EquipmentQualityDistribution.WithLabelValues(quality, qualityName, slotType, slotName).Set(float64(count))
+	}
+
+	for invType, agg := range ilvlBySlot {
+		slotName := constants.InventoryTypeNames[invType]
+		if slotName == "" {
+			slotName = fmt.Sprintf("Unknown_%d", invType)
+		}
+		metrics.AvgItemLevelBySlot.WithLabelValues(fmt.Sprintf("%d", invType), slotName).Set(float64(agg.sum) / float64(agg.count))
+	}
+
+	type itemCount struct {
+		entry int
+		count int
+	}
+	var sorted []itemCount
+	for entry, count := range itemCounts {
+		sorted = append(sorted, itemCount{entry: entry, count: count})
+	}
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].count > sorted[j].count
+	})
+	if len(sorted) > 50 {
+		sorted = sorted[:50]
+	}
+	for _, ic := range sorted {
+		tmpl := itemTemplateMap[ic.entry]
+		qualityName := constants.QualityNames[tmpl.quality]
+		if qualityName == "" {
+			qualityName = fmt.Sprintf("Unknown_%d", tmpl.quality)
+		}
+		metrics.TopEquippedItems.WithLabelValues(
+			fmt.Sprintf("%d", ic.entry), tmpl.name, qualityName,
+		).Set(float64(ic.count))
 	}
 
 	return nil

@@ -153,3 +153,25 @@ func GetDesertionTypeName(desertionType int) string {
 	}
 	return fmt.Sprintf("Unknown_%d", desertionType)
 }
+
+var WeaponSubclassNames = map[int]string{
+	0: "One-Handed Axes", 1: "Two-Handed Axes", 2: "Bows", 3: "Guns",
+	4: "One-Handed Maces", 5: "Two-Handed Maces", 6: "Polearms",
+	7: "Two-Handed Swords", 8: "One-Handed Swords", 10: "Staves",
+	13: "Fist Weapons", 15: "Daggers", 16: "Thrown", 18: "Crossbows",
+	19: "Wands", 20: "Fishing Poles",
+}
+
+var InventoryTypeNames = map[int]string{
+	1: "Head", 2: "Neck", 3: "Shoulder", 4: "Shirt", 5: "Chest",
+	6: "Waist", 7: "Legs", 8: "Feet", 9: "Wrists", 10: "Hands",
+	11: "Finger", 12: "Trinket", 13: "One-Hand", 14: "Shield",
+	15: "Ranged", 16: "Back", 17: "Two-Hand", 19: "Tabard",
+	20: "Robe", 21: "Main Hand", 22: "Off Hand", 23: "Held In Off-Hand",
+	26: "Ranged Right", 28: "Relic",
+}
+
+var QualityNames = map[int]string{
+	0: "Poor", 1: "Common", 2: "Uncommon", 3: "Rare",
+	4: "Epic", 5: "Legendary", 6: "Artifact",
+}

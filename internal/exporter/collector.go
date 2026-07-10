@@ -34,6 +34,9 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	if err := e.collectPlayerMetrics(); err != nil {
 		log.Printf("Error collecting player metrics: %v", err)
 	}
+	if err := e.collectEquipmentMetrics(); err != nil {
+		log.Printf("Error collecting equipment metrics: %v", err)
+	}
 	if err := e.collectMailMetrics(); err != nil {
 		log.Printf("Error collecting mail metrics: %v", err)
 	}
@@ -83,6 +86,11 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	metrics.PlayersByLevel.Collect(ch)
 	metrics.PlayersByClass.Collect(ch)
 	metrics.OnlinePlayersByLevel.Collect(ch)
+	metrics.EquippedWeaponTypes.Collect(ch)
+	metrics.FishingRodsEquipped.Collect(ch)
+	metrics.EquipmentQualityDistribution.Collect(ch)
+	metrics.AvgItemLevelBySlot.Collect(ch)
+	metrics.TopEquippedItems.Collect(ch)
 	metrics.MailTotal.Collect(ch)
 	metrics.MailByFaction.Collect(ch)
 	metrics.MailWithItems.Collect(ch)
@@ -144,6 +152,11 @@ func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 	metrics.PlayersByLevel.Describe(ch)
 	metrics.PlayersByClass.Describe(ch)
 	metrics.OnlinePlayersByLevel.Describe(ch)
+	metrics.EquippedWeaponTypes.Describe(ch)
+	metrics.FishingRodsEquipped.Describe(ch)
+	metrics.EquipmentQualityDistribution.Describe(ch)
+	metrics.AvgItemLevelBySlot.Describe(ch)
+	metrics.TopEquippedItems.Describe(ch)
 	metrics.MailTotal.Describe(ch)
 	metrics.MailByFaction.Describe(ch)
 	metrics.MailWithItems.Describe(ch)
