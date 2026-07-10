@@ -490,6 +490,22 @@ var (
 			Help: "Total number of players currently in battlegrounds",
 		},
 	)
+
+	PlayersInInstance = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "wow_players_in_instance",
+			Help: "Players currently inside instances with character details",
+		},
+		[]string{"instance_id", "map_id", "character_name", "faction"},
+	)
+
+	InstancePlayerCount = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "wow_instance_player_count",
+			Help: "Number of players in each instance",
+		},
+		[]string{"instance_id", "map_id"},
+	)
 )
 
 // Equipment metrics

@@ -76,6 +76,9 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	if err := e.collectInstanceMetrics(); err != nil {
 		log.Printf("Error collecting instance metrics: %v", err)
 	}
+	if err := e.collectInstancePlayerMetrics(); err != nil {
+		log.Printf("Error collecting instance player metrics: %v", err)
+	}
 	if err := e.collectNetworkMetrics(); err != nil {
 		log.Printf("Error collecting network metrics: %v", err)
 	}
@@ -128,6 +131,8 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	metrics.LFGDataCount.Collect(ch)
 	metrics.LagReportsCount.Collect(ch)
 	metrics.InstanceSavesCount.Collect(ch)
+	metrics.PlayersInInstance.Collect(ch)
+	metrics.InstancePlayerCount.Collect(ch)
 	metrics.PlayerLatencyStats.Collect(ch)
 	metrics.IPBannedCount.Collect(ch)
 	metrics.IPActionLogsByType.Collect(ch)
@@ -197,6 +202,8 @@ func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 	metrics.LFGDataCount.Describe(ch)
 	metrics.LagReportsCount.Describe(ch)
 	metrics.InstanceSavesCount.Describe(ch)
+	metrics.PlayersInInstance.Describe(ch)
+	metrics.InstancePlayerCount.Describe(ch)
 	metrics.PlayerLatencyStats.Describe(ch)
 	metrics.IPBannedCount.Describe(ch)
 	metrics.IPActionLogsByType.Describe(ch)
