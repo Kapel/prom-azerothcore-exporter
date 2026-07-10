@@ -177,6 +177,19 @@ func GetContinentName(mapID int) string {
 	return "Instances/Other"
 }
 
+var AuctionHouseNames = map[int]string{
+	2: "Alliance",
+	6: "Horde",
+	7: "Neutral",
+}
+
+func GetAuctionHouseName(houseid int) string {
+	if name, exists := AuctionHouseNames[houseid]; exists {
+		return name
+	}
+	return fmt.Sprintf("Unknown_%d", houseid)
+}
+
 func GetDesertionTypeName(desertionType int) string {
 	desertionTypeNames := map[int]string{
 		0: "Leave",

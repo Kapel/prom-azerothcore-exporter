@@ -603,25 +603,138 @@ func (e *Exporter) collectServerMetrics() error {
 
 func (e *Exporter) collectAuctionMetrics() error {
 	metrics.AuctionCount.Reset()
-	// houseid: 7 (neutral), 1 (alliance), 2 (horde)
-	houseMap := map[int]string{1: "Alliance", 2: "Horde", 7: "Neutral"}
-	query := `SELECT houseid, COUNT(*) FROM auctionhouse GROUP BY houseid`
+	metrics.AuctionActiveCount.Reset()
+	metrics.AuctionActiveValueGold.Reset()
+	metrics.AuctionAvgBuyoutGold.Reset()
+	metrics.AuctionBidActivity.Reset()
+	metrics.AuctionTopSales.Reset()
+
+	// Active auctions: count, total value, avg buyout
+	query := `SELECT houseid, COUNT(*) as cnt, SUM(buyoutprice) as total_value, AVG(buyoutprice) as avg_price FROM auctionhouse GROUP BY houseid`
 	rows, err := e.connections.Characters.Query(query)
 	if err != nil {
 		return err
 	}
 	defer database.CloseRowsWithLog(rows)
 	for rows.Next() {
-		var houseid, count int
-		if err := rows.Scan(&houseid, &count); err != nil {
+		var houseid, cnt int
+		var totalValue, avgPrice int64
+		if err := rows.Scan(&houseid, &cnt, &totalValue, &avgPrice); err != nil {
 			return err
 		}
-		house := houseMap[houseid]
-		if house == "" {
-			house = fmt.Sprintf("%d", houseid)
-		}
-		metrics.AuctionCount.WithLabelValues(house).Set(float64(count))
+		houseName := constants.GetAuctionHouseName(houseid)
+		houseStr := fmt.Sprintf("%d", houseid)
+
+		metrics.AuctionCount.WithLabelValues(houseStr).Set(float64(cnt))
+		metrics.AuctionActiveCount.WithLabelValues(houseStr, houseName).Set(float64(cnt))
+		metrics.AuctionActiveValueGold.WithLabelValues(houseStr, houseName).Set(constants.CopperToGold(totalValue))
+		metrics.AuctionAvgBuyoutGold.WithLabelValues(houseStr, houseName).Set(constants.CopperToGold(avgPrice))
 	}
+
+	// Bid activity: auctions with active bids (lastbid > startbid)
+	query = `SELECT houseid, COUNT(*) as cnt FROM auctionhouse WHERE lastbid > startbid GROUP BY houseid`
+	rows, err = e.connections.Characters.Query(query)
+	if err != nil {
+		return err
+	}
+	defer database.CloseRowsWithLog(rows)
+	for rows.Next() {
+		var houseid, cnt int
+		if err := rows.Scan(&houseid, &cnt); err != nil {
+			return err
+		}
+		houseName := constants.GetAuctionHouseName(houseid)
+		houseStr := fmt.Sprintf("%d", houseid)
+		metrics.AuctionBidActivity.WithLabelValues(houseStr, houseName).Set(float64(cnt))
+	}
+
+	// Top sales: sold items with cross-references
+	query = `
+		SELECT ah.buyoutprice, ah.houseid, ii.itemEntry,
+		       seller.name as seller_name, buyer.name as buyer_name
+		FROM auctionhouse ah
+		LEFT JOIN item_instance ii ON ah.itemguid = ii.guid
+		LEFT JOIN characters seller ON ah.itemowner = seller.guid
+		LEFT JOIN characters buyer ON ah.buyguid = buyer.guid
+		WHERE ah.buyguid != 0
+		ORDER BY ah.buyoutprice DESC
+		LIMIT 20
+	`
+	rows, err = e.connections.Characters.Query(query)
+	if err != nil {
+		return err
+	}
+	defer database.CloseRowsWithLog(rows)
+
+	type topSale struct {
+		buyoutPrice int64
+		houseID     int
+		itemEntry   int
+		sellerName  string
+		buyerName   string
+	}
+	var topSales []topSale
+	itemEntrySet := make(map[int]bool)
+
+	for rows.Next() {
+		var ts topSale
+		var itemEntry sql.NullInt64
+		var sellerName, buyerName sql.NullString
+		if err := rows.Scan(&ts.buyoutPrice, &ts.houseID, &itemEntry, &sellerName, &buyerName); err != nil {
+			return err
+		}
+		if itemEntry.Valid {
+			ts.itemEntry = int(itemEntry.Int64)
+			itemEntrySet[int(itemEntry.Int64)] = true
+		}
+		if sellerName.Valid {
+			ts.sellerName = sellerName.String
+		}
+		if buyerName.Valid {
+			ts.buyerName = buyerName.String
+		}
+		topSales = append(topSales, ts)
+	}
+
+	// Batch lookup item_template names from world DB
+	itemNameMap := make(map[int]string)
+	if len(itemEntrySet) > 0 {
+		entries := make([]int, 0, len(itemEntrySet))
+		for entry := range itemEntrySet {
+			entries = append(entries, entry)
+		}
+		placeholders := make([]string, len(entries))
+		args := make([]interface{}, len(entries))
+		for i, entry := range entries {
+			placeholders[i] = "?"
+			args[i] = entry
+		}
+		worldQuery := fmt.Sprintf("SELECT entry, name FROM item_template WHERE entry IN (%s)", strings.Join(placeholders, ","))
+		worldRows, err := e.connections.World.Query(worldQuery, args...)
+		if err == nil {
+			defer database.CloseRowsWithLog(worldRows)
+			for worldRows.Next() {
+				var entry int
+				var name string
+				if worldRows.Scan(&entry, &name) == nil {
+					itemNameMap[entry] = name
+				}
+			}
+		}
+	}
+
+	for _, ts := range topSales {
+		itemName := itemNameMap[ts.itemEntry]
+		houseName := constants.GetAuctionHouseName(ts.houseID)
+		metrics.AuctionTopSales.WithLabelValues(
+			fmt.Sprintf("%d", ts.itemEntry),
+			itemName,
+			ts.sellerName,
+			ts.buyerName,
+			houseName,
+		).Set(constants.CopperToGold(ts.buyoutPrice))
+	}
+
 	return nil
 }
 
