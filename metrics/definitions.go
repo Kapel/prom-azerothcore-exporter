@@ -122,6 +122,46 @@ var (
 		},
 		[]string{"house"},
 	)
+
+	AuctionActiveCount = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "wow_auction_active_count",
+			Help: "Number of active auctions by auction house",
+		},
+		[]string{"house", "house_name"},
+	)
+
+	AuctionActiveValueGold = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "wow_auction_active_value_gold",
+			Help: "Total value (buyout) of active auctions by auction house",
+		},
+		[]string{"house", "house_name"},
+	)
+
+	AuctionAvgBuyoutGold = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "wow_auction_avg_buyout_gold",
+			Help: "Average buyout price by auction house",
+		},
+		[]string{"house", "house_name"},
+	)
+
+	AuctionBidActivity = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "wow_auction_bid_activity",
+			Help: "Number of auctions with active bids by auction house",
+		},
+		[]string{"house", "house_name"},
+	)
+
+	AuctionTopSales = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "wow_auction_top_sales_gold",
+			Help: "Top auction sales by item and price (last 24h, buyguid != 0)",
+		},
+		[]string{"item_entry", "item_name", "seller_name", "buyer_name", "house_name"},
+	)
 )
 
 // Guild metrics

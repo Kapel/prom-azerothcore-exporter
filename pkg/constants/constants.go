@@ -141,6 +141,23 @@ func GetBattlegroundTypeName(bgType int) string {
 	return fmt.Sprintf("Unknown_%d", bgType)
 }
 
+var AuctionHouseNames = map[int]string{
+	2: "Alliance",
+	6: "Horde",
+	7: "Neutral",
+}
+
+func GetAuctionHouseName(houseid int) string {
+	if name, exists := AuctionHouseNames[houseid]; exists {
+		return name
+	}
+	return fmt.Sprintf("Unknown_%d", houseid)
+}
+
+func CopperToGold(copper int64) float64 {
+	return float64(copper) / 10000.0
+}
+
 func GetDesertionTypeName(desertionType int) string {
 	desertionTypeNames := map[int]string{
 		0: "Leave",
