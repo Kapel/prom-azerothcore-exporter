@@ -640,6 +640,50 @@ func (e *Exporter) collectInstanceMetrics() error {
 	return nil
 }
 
+type instanceKey struct {
+	instanceID int
+	mapID      int
+}
+
+func (e *Exporter) collectInstancePlayerMetrics() error {
+	metrics.PlayersInInstance.Reset()
+	metrics.InstancePlayerCount.Reset()
+
+	query := `SELECT instance_id, map, name, race FROM characters WHERE online = 1 AND instance_id > 0`
+	rows, err := e.connections.Characters.Query(query)
+	if err != nil {
+		return err
+	}
+	defer database.CloseRowsWithLog(rows)
+
+	counts := make(map[instanceKey]int)
+
+	for rows.Next() {
+		var instanceID, mapID, race int
+		var name string
+		if err := rows.Scan(&instanceID, &mapID, &name, &race); err != nil {
+			return err
+		}
+		faction := constants.RaceToFaction[race]
+		instanceIDStr := fmt.Sprintf("%d", instanceID)
+		mapIDStr := fmt.Sprintf("%d", mapID)
+
+		metrics.PlayersInInstance.WithLabelValues(instanceIDStr, mapIDStr, name, faction).Set(1)
+
+		counts[instanceKey{instanceID, mapID}]++
+	}
+
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	for key, count := range counts {
+		metrics.InstancePlayerCount.WithLabelValues(fmt.Sprintf("%d", key.instanceID), fmt.Sprintf("%d", key.mapID)).Set(float64(count))
+	}
+
+	return nil
+}
+
 func (e *Exporter) collectNetworkMetrics() error {
 	// Player latency statistics
 	metrics.PlayerLatencyStats.Reset()
