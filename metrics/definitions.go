@@ -233,6 +233,33 @@ var (
 	)
 )
 
+// Location metrics
+var (
+	PlayersByMap = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "wow_players_by_map",
+			Help: "Number of online players by map",
+		},
+		[]string{"map_id", "map_name", "faction"},
+	)
+
+	PlayersByZone = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "wow_players_by_zone",
+			Help: "Number of online players by zone",
+		},
+		[]string{"zone_id", "map_id", "faction"},
+	)
+
+	PlayersByContinent = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "wow_players_by_continent",
+			Help: "Number of online players by continent",
+		},
+		[]string{"continent", "faction"},
+	)
+)
+
 // Instance and raid metrics
 var (
 	ActiveInstanceCount = prometheus.NewGauge(

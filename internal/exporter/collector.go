@@ -34,6 +34,9 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	if err := e.collectPlayerMetrics(); err != nil {
 		log.Printf("Error collecting player metrics: %v", err)
 	}
+	if err := e.collectLocationMetrics(); err != nil {
+		log.Printf("Error collecting location metrics: %v", err)
+	}
 	if err := e.collectMailMetrics(); err != nil {
 		log.Printf("Error collecting mail metrics: %v", err)
 	}
@@ -83,6 +86,9 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	metrics.PlayersByLevel.Collect(ch)
 	metrics.PlayersByClass.Collect(ch)
 	metrics.OnlinePlayersByLevel.Collect(ch)
+	metrics.PlayersByMap.Collect(ch)
+	metrics.PlayersByZone.Collect(ch)
+	metrics.PlayersByContinent.Collect(ch)
 	metrics.MailTotal.Collect(ch)
 	metrics.MailByFaction.Collect(ch)
 	metrics.MailWithItems.Collect(ch)
@@ -144,6 +150,9 @@ func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 	metrics.PlayersByLevel.Describe(ch)
 	metrics.PlayersByClass.Describe(ch)
 	metrics.OnlinePlayersByLevel.Describe(ch)
+	metrics.PlayersByMap.Describe(ch)
+	metrics.PlayersByZone.Describe(ch)
+	metrics.PlayersByContinent.Describe(ch)
 	metrics.MailTotal.Describe(ch)
 	metrics.MailByFaction.Describe(ch)
 	metrics.MailWithItems.Describe(ch)

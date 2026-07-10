@@ -141,6 +141,42 @@ func GetBattlegroundTypeName(bgType int) string {
 	return fmt.Sprintf("Unknown_%d", bgType)
 }
 
+var MapNames = map[int]string{
+	0:   "Eastern Kingdoms",
+	1:   "Kalimdor",
+	530: "Outland",
+	571: "Northrend",
+	609: "Ebon Hold",
+	30:  "Alterac Valley",
+	489: "Warsong Gulch",
+	529: "Arathi Basin",
+	566: "Eye of the Storm",
+	607: "Strand of the Ancients",
+	628: "Isle of Conquest",
+}
+
+var MapToContinent = map[int]string{
+	0:   "Eastern Kingdoms",
+	1:   "Kalimdor",
+	530: "Outland",
+	571: "Northrend",
+	609: "Ebon Hold",
+}
+
+func GetMapName(mapID int) string {
+	if name, ok := MapNames[mapID]; ok {
+		return name
+	}
+	return fmt.Sprintf("Map_%d", mapID)
+}
+
+func GetContinentName(mapID int) string {
+	if name, ok := MapToContinent[mapID]; ok {
+		return name
+	}
+	return "Instances/Other"
+}
+
 func GetDesertionTypeName(desertionType int) string {
 	desertionTypeNames := map[int]string{
 		0: "Leave",

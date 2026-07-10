@@ -3,6 +3,7 @@ package exporter
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/scottjab/prom-azerothcore-exporter/metrics"
 	"github.com/scottjab/prom-azerothcore-exporter/pkg/constants"
@@ -197,6 +198,83 @@ func (e *Exporter) collectPlayerMetrics() error {
 			characterName,
 			accountName,
 		).Set(float64(level))
+	}
+
+	return nil
+}
+
+func (e *Exporter) collectLocationMetrics() error {
+	metrics.PlayersByMap.Reset()
+	metrics.PlayersByZone.Reset()
+	metrics.PlayersByContinent.Reset()
+
+	mapNameCache := make(map[int]string)
+	if e.connections.World != nil {
+		rows, err := e.connections.World.Query(`SELECT ID, MapName_Lang_enUS FROM map_dbc`)
+		if err == nil {
+			defer database.CloseRowsWithLog(rows)
+			for rows.Next() {
+				var id int
+				var name string
+				if err := rows.Scan(&id, &name); err != nil {
+					continue
+				}
+				if name != "" {
+					mapNameCache[id] = name
+				}
+			}
+		}
+	}
+
+	rows, err := e.connections.Characters.Query(`SELECT race, map, zone FROM characters WHERE online = 1`)
+	if err != nil {
+		return err
+	}
+	defer database.CloseRowsWithLog(rows)
+
+	mapFactionCounts := make(map[string]int)
+	zoneFactionCounts := make(map[string]int)
+	continentFactionCounts := make(map[string]int)
+
+	for rows.Next() {
+		var race, mapID, zoneID int
+		if err := rows.Scan(&race, &mapID, &zoneID); err != nil {
+			return err
+		}
+		faction := constants.RaceToFaction[race]
+		if faction == "" {
+			faction = "Unknown"
+		}
+
+		mapName, ok := mapNameCache[mapID]
+		if !ok {
+			mapName = constants.GetMapName(mapID)
+		}
+
+		continent := constants.GetContinentName(mapID)
+
+		mapKey := fmt.Sprintf("%d|%s|%s", mapID, mapName, faction)
+		zoneKey := fmt.Sprintf("%d|%d|%s", zoneID, mapID, faction)
+		continentKey := fmt.Sprintf("%s|%s", continent, faction)
+
+		mapFactionCounts[mapKey]++
+		zoneFactionCounts[zoneKey]++
+		continentFactionCounts[continentKey]++
+	}
+
+	for key, count := range mapFactionCounts {
+		parts := strings.SplitN(key, "|", 3)
+		metrics.PlayersByMap.WithLabelValues(parts[0], parts[1], parts[2]).Add(float64(count))
+	}
+
+	for key, count := range zoneFactionCounts {
+		parts := strings.SplitN(key, "|", 3)
+		metrics.PlayersByZone.WithLabelValues(parts[0], parts[1], parts[2]).Add(float64(count))
+	}
+
+	for key, count := range continentFactionCounts {
+		parts := strings.SplitN(key, "|", 2)
+		metrics.PlayersByContinent.WithLabelValues(parts[0], parts[1]).Add(float64(count))
 	}
 
 	return nil
